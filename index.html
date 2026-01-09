@@ -8,30 +8,28 @@
   <script>
 
 /**
- * 1701ITC Assessment 2 - TiltLabyrinth
+ * 1701ITC Assessment 2 - TiltLabyrinth (Bicycle Edition)
  * Milestones 1 & 2 Combined
- * * Features:
- * - Accelerometer/Tilt control with Keyboard fallback
+ * Features:
+ * - Bicycle player design & Road-themed environment
+ * - Accelerometer/Tilt control & Keyboard fallback
  * - Game States: TITLE, INSTRUCTIONS, PLAYING, GAMEOVER
  * - Continuous Background Music (song.mp3)
- * - Difficulty Scaling (Speed increases over time)
- * - High Score Persistence (Session-based)
+ * - Difficulty Scaling & High Score Persistence
  */
 
-// --- Variables ---
-let gameState = 'TITLE'; // TITLE, INSTRUCTIONS, PLAYING, GAMEOVER
+let gameState = 'TITLE'; 
 let player;
 let obstacles = [];
 let score = 0;
 let highScore = 0;
-let gameSpeed = 3;
+let gameSpeed = 5; // Faster default for road feel
+let bgOffset = 0; // For road animation
 let bgSong;
 let permissionGranted = false;
 let permissionButton;
 
-// --- Load Assets ---
 function preload() {
-  // Load the background song - ensure song.mp3 is in the same directory
   soundFormats('mp3', 'ogg');
   bgSong = loadSound('song.mp3');
 }
@@ -40,23 +38,21 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   rectMode(CENTER);
   textAlign(CENTER, CENTER);
-
-  // Initialize Player
   player = new Player();
 
-  // Handle Mobile Sensor Permissions (Required for iOS)
+  // Mobile Permission Handling
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     permissionButton = createButton('Enable Tilt Sensors');
     permissionButton.position(width / 2 - 75, height / 2 + 100);
+    permissionButton.style('padding', '10px');
     permissionButton.mousePressed(requestSensorPermission);
   } else {
-    // Non-iOS or Desktop
     permissionGranted = true;
   }
 }
 
 function draw() {
-  background(30, 30, 50); // Dark space theme
+  drawRoad(); // Draws the asphalt and moving lane lines
 
   switch (gameState) {
     case 'TITLE':
@@ -74,38 +70,61 @@ function draw() {
   }
 }
 
+// --- Environment ---
+
+function drawRoad() {
+  background(60); // Dark gray asphalt
+  
+  // Draw Grass/Shoulders
+  noStroke();
+  fill(34, 139, 34); // Forest Green
+  rect(width/2, 25, width, 50);
+  rect(width/2, height - 25, width, 50);
+
+  // Moving Lane Markers
+  stroke(255);
+  strokeWeight(4);
+  bgOffset -= gameSpeed;
+  if (bgOffset < -100) bgOffset = 0;
+
+  for (let x = bgOffset; x < width; x += 100) {
+    line(x + 20, height / 2, x + 70, height / 2); // Center line
+  }
+}
+
 // --- Game State Functions ---
 
 function drawTitleScreen() {
-  fill(255);
-  textSize(42);
-  text("TILT LABYRINTH", width / 2, height / 2 - 50);
+  fill(0, 0, 0, 150);
+  rect(width/2, height/2, width, height); // Dark overlay
+  fill(255, 204, 0);
+  textSize(50);
+  text("CITY CYCLER", width / 2, height / 2 - 50);
   textSize(20);
-  fill(200);
-  text("A Gravity-Defying Adventure", width / 2, height / 2);
+  fill(255);
+  text("A Tilt-Controlled Road Adventure", width / 2, height / 2);
   fill(0, 255, 150);
-  text("Click or Tap to Start", width / 2, height / 2 + 60);
+  text("Tap to Start", width / 2, height / 2 + 60);
 }
 
 function drawInstructionScreen() {
+  fill(0, 0, 0, 180);
+  rect(width/2, height/2, width, height);
   fill(255);
   textSize(24);
-  text("HOW TO PLAY", width / 2, height / 3);
-  textSize(16);
-  text("Mobile: Tilt your device to move\nLaptop: Use Arrow Keys\n\nAvoid the red walls!\nSurvive as long as possible.", width / 2, height / 2);
+  text("HOW TO RIDE", width / 2, height / 3);
+  textSize(18);
+  text("Tilt device UP/DOWN & LEFT/RIGHT\nto navigate traffic.\nAvoid the traffic cones!", width / 2, height / 2);
   fill(0, 255, 150);
-  text("Tap to Begin", width / 2, height / 2 + 120);
+  text("Tap to Begin Racing", width / 2, height / 2 + 120);
 }
 
 function playGame() {
   handleInput();
-  
-  // Update and Display Player
   player.update();
   player.display();
 
-  // Manage Obstacles (Side-scroller logic)
-  if (frameCount % 60 === 0) {
+  if (frameCount % 45 === 0) { // Slightly faster obstacle spawn
     obstacles.push(new Obstacle());
   }
 
@@ -113,79 +132,61 @@ function playGame() {
     obstacles[i].update();
     obstacles[i].display();
 
-    // Collision Detection
-    if (obstacles[i].hits(player)) {
-      endGame();
-    }
+    if (obstacles[i].hits(player)) endGame();
 
-    // Remove off-screen obstacles and update score
     if (obstacles[i].offscreen()) {
       obstacles.splice(i, 1);
       score++;
-      // Difficulty ramp: Increase speed every 5 points
-      if (score % 5 === 0) gameSpeed += 0.5;
+      if (score % 10 === 0) gameSpeed += 0.8;
     }
   }
-
   drawHUD();
 }
 
 function drawGameOverScreen() {
+  fill(0, 0, 0, 200);
+  rect(width/2, height/2, width, height);
   fill(255, 50, 50);
   textSize(48);
-  text("GAME OVER", width / 2, height / 2 - 60);
-  
+  text("WIPE OUT!", width / 2, height / 2 - 60);
   fill(255);
   textSize(24);
-  text("Final Score: " + score, width / 2, height / 2);
-  text("High Score: " + highScore, width / 2, height / 2 + 40);
-  
+  text("Score: " + score, width / 2, height / 2);
+  text("Best: " + highScore, width / 2, height / 2 + 40);
   fill(0, 255, 150);
-  text("Tap to Try Again", width / 2, height / 2 + 100);
+  text("Tap to Ride Again", width / 2, height / 2 + 100);
 }
 
-// --- Helper Functions ---
+// --- Helpers ---
 
 function drawHUD() {
-  fill(255);
+  fill(255, 255, 0);
   noStroke();
-  textSize(20);
+  textSize(22);
   textAlign(LEFT);
-  text("Score: " + score, 30, 40);
+  text("Distance: " + score + "m", 30, 50);
   textAlign(RIGHT);
-  text("High Score: " + highScore, width - 30, 40);
+  text("Best: " + highScore + "m", width - 30, 50);
   textAlign(CENTER);
 }
 
 function handleInput() {
   if (permissionGranted) {
-    // Tilt Control (Normalized for smooth movement)
-    // rotationY controls Left/Right, rotationX controls Up/Down
-    let tiltX = constrain(rotationY, -30, 30); 
-    let tiltY = constrain(rotationX, -30, 30);
-    
-    player.applyForce(tiltX * 0.1, tiltY * 0.1);
+    let tiltX = constrain(rotationY, -25, 25); 
+    let tiltY = constrain(rotationX, -25, 25);
+    player.applyForce(tiltX * 0.12, tiltY * 0.12);
   }
-
-  // Keyboard Fallback
-  if (keyIsDown(LEFT_ARROW)) player.applyForce(-0.5, 0);
-  if (keyIsDown(RIGHT_ARROW)) player.applyForce(0.5, 0);
-  if (keyIsDown(UP_ARROW)) player.applyForce(0, -0.5);
-  if (keyIsDown(DOWN_ARROW)) player.applyForce(0, 0.5);
+  if (keyIsDown(LEFT_ARROW)) player.applyForce(-0.6, 0);
+  if (keyIsDown(RIGHT_ARROW)) player.applyForce(0.6, 0);
+  if (keyIsDown(UP_ARROW)) player.applyForce(0, -0.6);
+  if (keyIsDown(DOWN_ARROW)) player.applyForce(0, 0.6);
 }
 
 function mousePressed() {
   if (gameState === 'TITLE') {
     gameState = 'INSTRUCTIONS';
-    // Start music on first interaction (Browser requirement)
-    if (!bgSong.isPlaying()) {
-      bgSong.loop();
-      bgSong.setVolume(0.5);
-    }
-  } else if (gameState === 'INSTRUCTIONS') {
-    resetGame();
-    gameState = 'PLAYING';
-  } else if (gameState === 'GAMEOVER') {
+    if (!bgSong.isPlaying()) { bgSong.loop(); bgSong.setVolume(0.4); }
+  } else if (gameState === 'INSTRUCTIONS' || gameState === 'GAMEOVER') {
     resetGame();
     gameState = 'PLAYING';
   }
@@ -193,7 +194,7 @@ function mousePressed() {
 
 function resetGame() {
   score = 0;
-  gameSpeed = 3;
+  gameSpeed = 5;
   obstacles = [];
   player = new Player();
 }
@@ -210,20 +211,20 @@ function requestSensorPermission() {
         permissionGranted = true;
         permissionButton.remove();
       }
-    })
-    .catch(console.error);
+    }).catch(console.error);
 }
 
 // --- Classes ---
 
 class Player {
   constructor() {
-    this.x = 100;
+    this.x = 150;
     this.y = height / 2;
     this.vx = 0;
     this.vy = 0;
-    this.r = 20;
-    this.friction = 0.95;
+    this.w = 50; // Bicycle length
+    this.h = 30; // Bicycle height
+    this.friction = 0.94;
   }
 
   applyForce(fx, fy) {
@@ -236,33 +237,49 @@ class Player {
     this.y += this.vy;
     this.vx *= this.friction;
     this.vy *= this.friction;
-
-    // Boundary constraints
-    this.x = constrain(this.x, this.r, width - this.r);
-    this.y = constrain(this.y, this.r, height - this.r);
+    this.x = constrain(this.x, 30, width - 30);
+    this.y = constrain(this.y, 60, height - 60); // Keep on asphalt
   }
 
   display() {
     push();
-    fill(0, 200, 255);
-    stroke(255);
-    strokeWeight(2);
-    ellipse(this.x, this.y, this.r * 2);
-    // Simple eye animation
-    fill(255);
-    ellipse(this.x + 5, this.y - 5, 5);
+    translate(this.x, this.y);
+    
+    // Wheels
+    stroke(0);
+    strokeWeight(3);
+    fill(40);
+    ellipse(-15, 10, 20, 20); // Back wheel
+    ellipse(15, 10, 20, 20);  // Front wheel
+    
+    // Hubs
+    fill(200);
+    ellipse(-15, 10, 5, 5);
+    ellipse(15, 10, 5, 5);
+
+    // Bicycle Frame
+    stroke(0, 150, 255); // Blue frame
+    strokeWeight(4);
+    line(-15, 10, 0, -5);   // Rear stay to seat
+    line(0, -5, 15, 10);    // Seat to front wheel
+    line(0, -5, 10, -15);   // Seat to handlebars
+    line(15, 10, 10, -15);  // Front fork
+    
+    // Seat & Handlebars
+    stroke(0);
+    strokeWeight(5);
+    line(-2, -5, 5, -5);    // Seat
+    line(8, -15, 15, -15);  // Handlebars
     pop();
   }
 }
 
 class Obstacle {
   constructor() {
-    this.w = 40;
-    this.h = random(height / 4, height / 2);
+    this.w = 30;
+    this.h = 40;
     this.x = width + this.w;
-    // Randomly place at top or bottom
-    this.y = random([this.h / 2, height - this.h / 2]);
-    this.color = color(255, 60, 100);
+    this.y = random(80, height - 80);
   }
 
   update() {
@@ -270,33 +287,44 @@ class Obstacle {
   }
 
   display() {
-    fill(this.color);
+    push();
+    translate(this.x, this.y);
+    
+    // Traffic Cone Design
     noStroke();
-    rect(this.x, this.y, this.w, this.h, 5);
+    fill(255, 100, 0); // Orange
+    triangle(-15, 20, 15, 20, 0, -20);
+    
+    // Cone stripes
+    fill(255);
+    rect(0, 5, 12, 5);
+    rect(0, -5, 8, 5);
+    
+    // Cone base
+    fill(50);
+    rect(0, 20, 35, 5);
+    pop();
   }
 
   hits(p) {
-    // AABB Collision Detection
-    return (p.x + p.r > this.x - this.w / 2 &&
-            p.x - p.r < this.x + this.w / 2 &&
-            p.y + p.r > this.y - this.h / 2 &&
-            p.y - p.r < this.y + this.h / 2);
+    // Collision box adjusted for bicycle shape
+    return (p.x + 20 > this.x - 15 &&
+            p.x - 20 < this.x + 15 &&
+            p.y + 15 > this.y - 20 &&
+            p.y - 15 < this.y + 20);
   }
 
-  offscreen() {
-    return this.x < -this.w;
-  }
+  offscreen() { return this.x < -100; }
 }
 
-// Adjust canvas if window is resized
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-}
-  
+}  
   
   </script>
 </body>
 </html>
+
 
 
 
