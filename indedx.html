@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.dom.min.js"></script> <!-- For buttons -->
+</head>
+<body>
+  <script>
+
+
+// Fixed Device Tilt Tester - p5.js
+let state = 'start';
+let tiltValue = 0;
+let smoothTilt = 0; // For smoother visuals
+let startButton;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  textAlign(CENTER, CENTER);
+  
+  startButton = createButton('Tap to Enable Tilt');
+  styleButton(startButton);
+  startButton.mousePressed(startTilt);
+}
+
+function draw() {
+  background(135, 206, 250); 
+  
+  if (state === 'start') {
+    drawStartScreen();
+  } else if (state === 'tilting') {
+    updateTilt();
+    drawVisuals();
+  }
+}
+
+function updateTilt() {
+  // Check if rotation variables are actually being updated by hardware
+  // We check if rotationY is a number and not exactly 0 (or if it's moving)
+  if (typeof rotationY === 'number' && (rotationX !== 0 || rotationY !== 0)) {
+    tiltValue = rotationY; 
+  } else {
+    // Desktop Simulation Logic
+    if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) { // A or Left
+      tiltValue = -45;
+    } else if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) { // D or Right
+      tiltValue = 45;
+    } else {
+      tiltValue = 0;
+    }
+  }
+
+  // Smoothing: This stops the bike and bar from "shaking"
+  smoothTilt = lerp(smoothTilt, tiltValue, 0.1);
+}
+
+function drawVisuals() {
+  // 1. Dynamic Background Tint
+  let bgR = map(abs(smoothTilt), 0, 90, 135, 255);
+  background(bgR, 206, 250 - (bgR/4));
+
+  // 2. Central Tilt Bar
+  let barWidth = width * 0.7;
+  let barHeight = 30;
+  fill(50, 50, 50, 100);
+  rect(width/2 - barWidth/2, height*0.4, barWidth, barHeight, 15);
+  
+  // Normalized Fill
+  let fillSize = map(smoothTilt, -45, 45, -barWidth/2, barWidth/2);
+  fill(smoothTilt > 0 ? color(0, 150, 255) : color(255, 100, 0));
+  rect(width/2, height*0.4, fillSize, barHeight, 5);
+
+  // 3. The Leaning Bike
+  drawLeaningBike(width/2, height*0.55, smoothTilt);
+
+  // 4. Large Text Feedback
+  fill(255);
+  textSize(60);
+  text(floor(smoothTilt) + "°", width/2, height * 0.75);
+  
+  textSize(16);
+  fill(0, 50);
+  text("RELIANCE: " + (typeof rotationY === 'number' ? "HARDWARE" : "SIMULATION"), width/2, height - 40);
+}
+
+function drawLeaningBike(x, y, tilt) {
+  push();
+  translate(x, y);
+  rotate(radians(tilt * 0.5)); // The bike leans with the tilt
+  
+  // Simple Bike Shape
+  stroke(0);
+  strokeWeight(3);
+  fill(30);
+  ellipse(-20, 20, 30); // Back wheel
+  ellipse(20, 20, 30);  // Front wheel
+  line(-20, 20, 0, 0);   // Frame
+  line(20, 20, 0, 0);
+  fill(255, 0, 0);
+  rect(-10, -5, 20, 10); // Body
+  pop();
+}
+
+function startTilt() {
+  // iOS 13+ requires explicit permission via a click event
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(permissionState => {
+        if (permissionState === 'granted') {
+          // Add native listener to ensure browser keeps polling data
+          window.addEventListener('deviceorientation', (event) => {});
+          state = 'tilting';
+          startButton.hide();
+        } else {
+          alert("Permission denied. Ensure you are on HTTPS and allow motion sensors.");
+        }
+      })
+      .catch(console.error);
+  } else {
+    // Android or Desktop
+    state = 'tilting';
+    startButton.hide();
+  }
+}
+
+function drawStartScreen() {
+  fill(0);
+  textSize(28);
+  text('Device Tilt Tester', width / 2, height / 2 - 100);
+  textSize(16);
+  text('1. Use HTTPS (e.g. p5 editor or GitHub Pages)\n2. Tap the button below\n3. Allow "Motion & Orientation"', width / 2, height / 2 - 40);
+}
+
+function styleButton(btn) {
+  btn.position(width / 2 - 80, height / 2 + 20);
+  btn.size(160, 50);
+  btn.style('background-color', '#4CAF50');
+  btn.style('color', 'white');
+  btn.style('border', 'none');
+  btn.style('border-radius', '10px');
+  btn.style('font-size', '16px');
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  startButton.position(width / 2 - 80, height / 2 + 20);
+}
+
+
+ </script>
+</body>
+</html>
