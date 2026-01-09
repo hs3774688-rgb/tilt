@@ -8,14 +8,13 @@
   <script>
 
 /**
- * 1701ITC Assessment 2 - TiltLabyrinth (Bicycle Edition)
- * Milestones 1 & 2 Combined
+ * 1701ITC Assessment 2 - City Cycler (Milestones 1 & 2)
  * Features:
- * - Bicycle player design & Road-themed environment
- * - Accelerometer/Tilt control & Keyboard fallback
- * - Game States: TITLE, INSTRUCTIONS, PLAYING, GAMEOVER
- * - Continuous Background Music (song.mp3)
- * - Difficulty Scaling & High Score Persistence
+ * - Bicycle with Rider: Detailed player avatar.
+ * - Road Environment: Scrolling lanes and grass shoulders.
+ * - Tilt/Keyboard Control: Mobile accelerometer with desktop fallback.
+ * - Sound: Continuous loop of song.mp3.
+ * - State Flow: Title -> Instructions -> Playing -> GameOver.
  */
 
 let gameState = 'TITLE'; 
@@ -23,14 +22,15 @@ let player;
 let obstacles = [];
 let score = 0;
 let highScore = 0;
-let gameSpeed = 5; // Faster default for road feel
-let bgOffset = 0; // For road animation
+let gameSpeed = 5; 
+let bgOffset = 0; 
 let bgSong;
 let permissionGranted = false;
 let permissionButton;
 
 function preload() {
   soundFormats('mp3', 'ogg');
+  // Ensure song.mp3 is in your project folder
   bgSong = loadSound('song.mp3');
 }
 
@@ -40,11 +40,12 @@ function setup() {
   textAlign(CENTER, CENTER);
   player = new Player();
 
-  // Mobile Permission Handling
+  // Mobile Sensor Permission
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     permissionButton = createButton('Enable Tilt Sensors');
     permissionButton.position(width / 2 - 75, height / 2 + 100);
     permissionButton.style('padding', '10px');
+    permissionButton.style('border-radius', '5px');
     permissionButton.mousePressed(requestSensorPermission);
   } else {
     permissionGranted = true;
@@ -52,7 +53,7 @@ function setup() {
 }
 
 function draw() {
-  drawRoad(); // Draws the asphalt and moving lane lines
+  drawRoad(); 
 
   switch (gameState) {
     case 'TITLE':
@@ -73,36 +74,36 @@ function draw() {
 // --- Environment ---
 
 function drawRoad() {
-  background(60); // Dark gray asphalt
+  background(60); // Asphalt
   
-  // Draw Grass/Shoulders
+  // Grass shoulders
   noStroke();
-  fill(34, 139, 34); // Forest Green
+  fill(34, 139, 34); 
   rect(width/2, 25, width, 50);
   rect(width/2, height - 25, width, 50);
 
-  // Moving Lane Markers
+  // Moving Lane Lines
   stroke(255);
   strokeWeight(4);
   bgOffset -= gameSpeed;
   if (bgOffset < -100) bgOffset = 0;
 
   for (let x = bgOffset; x < width; x += 100) {
-    line(x + 20, height / 2, x + 70, height / 2); // Center line
+    line(x + 20, height / 2, x + 70, height / 2); 
   }
 }
 
-// --- Game State Functions ---
+// --- Game State Screens ---
 
 function drawTitleScreen() {
   fill(0, 0, 0, 150);
-  rect(width/2, height/2, width, height); // Dark overlay
+  rect(width/2, height/2, width, height); 
   fill(255, 204, 0);
   textSize(50);
   text("CITY CYCLER", width / 2, height / 2 - 50);
   textSize(20);
   fill(255);
-  text("A Tilt-Controlled Road Adventure", width / 2, height / 2);
+  text("Safety First! Avoid the Cones.", width / 2, height / 2);
   fill(0, 255, 150);
   text("Tap to Start", width / 2, height / 2 + 60);
 }
@@ -112,11 +113,11 @@ function drawInstructionScreen() {
   rect(width/2, height/2, width, height);
   fill(255);
   textSize(24);
-  text("HOW TO RIDE", width / 2, height / 3);
+  text("RIDER INSTRUCTIONS", width / 2, height / 3);
   textSize(18);
-  text("Tilt device UP/DOWN & LEFT/RIGHT\nto navigate traffic.\nAvoid the traffic cones!", width / 2, height / 2);
+  text("Tilt your phone to steer.\nOn Laptop: Use Arrow Keys.\nDon't hit the traffic cones!", width / 2, height / 2);
   fill(0, 255, 150);
-  text("Tap to Begin Racing", width / 2, height / 2 + 120);
+  text("Tap to Ride", width / 2, height / 2 + 120);
 }
 
 function playGame() {
@@ -124,10 +125,12 @@ function playGame() {
   player.update();
   player.display();
 
-  if (frameCount % 45 === 0) { // Slightly faster obstacle spawn
+  // Spawn obstacles
+  if (frameCount % 50 === 0) { 
     obstacles.push(new Obstacle());
   }
 
+  // Update obstacles
   for (let i = obstacles.length - 1; i >= 0; i--) {
     obstacles[i].update();
     obstacles[i].display();
@@ -137,7 +140,7 @@ function playGame() {
     if (obstacles[i].offscreen()) {
       obstacles.splice(i, 1);
       score++;
-      if (score % 10 === 0) gameSpeed += 0.8;
+      if (score % 10 === 0) gameSpeed += 0.5; // Difficulty scaling
     }
   }
   drawHUD();
@@ -151,13 +154,13 @@ function drawGameOverScreen() {
   text("WIPE OUT!", width / 2, height / 2 - 60);
   fill(255);
   textSize(24);
-  text("Score: " + score, width / 2, height / 2);
-  text("Best: " + highScore, width / 2, height / 2 + 40);
+  text("Final Distance: " + score + "m", width / 2, height / 2);
+  text("Session Record: " + highScore + "m", width / 2, height / 2 + 40);
   fill(0, 255, 150);
-  text("Tap to Ride Again", width / 2, height / 2 + 100);
+  text("Tap to Restart", width / 2, height / 2 + 100);
 }
 
-// --- Helpers ---
+// --- Interaction & Controls ---
 
 function drawHUD() {
   fill(255, 255, 0);
@@ -222,8 +225,6 @@ class Player {
     this.y = height / 2;
     this.vx = 0;
     this.vy = 0;
-    this.w = 50; // Bicycle length
-    this.h = 30; // Bicycle height
     this.friction = 0.94;
   }
 
@@ -238,38 +239,49 @@ class Player {
     this.vx *= this.friction;
     this.vy *= this.friction;
     this.x = constrain(this.x, 30, width - 30);
-    this.y = constrain(this.y, 60, height - 60); // Keep on asphalt
+    this.y = constrain(this.y, 70, height - 70); 
   }
 
   display() {
     push();
     translate(this.x, this.y);
     
-    // Wheels
+    // --- DRAW BICYCLE ---
     stroke(0);
     strokeWeight(3);
     fill(40);
-    ellipse(-15, 10, 20, 20); // Back wheel
-    ellipse(15, 10, 20, 20);  // Front wheel
+    ellipse(-18, 15, 22, 22); // Back wheel
+    ellipse(18, 15, 22, 22);  // Front wheel
     
-    // Hubs
-    fill(200);
-    ellipse(-15, 10, 5, 5);
-    ellipse(15, 10, 5, 5);
-
-    // Bicycle Frame
-    stroke(0, 150, 255); // Blue frame
+    // Bike Frame
+    stroke(0, 150, 255); 
     strokeWeight(4);
-    line(-15, 10, 0, -5);   // Rear stay to seat
-    line(0, -5, 15, 10);    // Seat to front wheel
-    line(0, -5, 10, -15);   // Seat to handlebars
-    line(15, 10, 10, -15);  // Front fork
+    line(-18, 15, 0, 0);    // Rear to seat
+    line(0, 0, 18, 15);     // Seat to front
+    line(18, 15, 12, -10);  // Fork
     
-    // Seat & Handlebars
+    // --- DRAW RIDER ---
+    // Torso
+    stroke(255, 200, 0); // Yellow jersey
+    strokeWeight(8);
+    line(0, 0, 5, -15);
+    
+    // Arms reaching for handlebars
+    stroke(255, 224, 189); // Skin tone
+    strokeWeight(3);
+    line(5, -12, 12, -10);
+    
+    // Head & Helmet
+    fill(255, 224, 189);
+    noStroke();
+    ellipse(8, -25, 12, 12); // Head
+    fill(255, 50, 50); // Red helmet
+    arc(8, -28, 15, 12, PI, TWO_PI); 
+    
+    // Handlebars
     stroke(0);
-    strokeWeight(5);
-    line(-2, -5, 5, -5);    // Seat
-    line(8, -15, 15, -15);  // Handlebars
+    strokeWeight(4);
+    line(10, -10, 18, -10);
     pop();
   }
 }
@@ -289,29 +301,22 @@ class Obstacle {
   display() {
     push();
     translate(this.x, this.y);
-    
-    // Traffic Cone Design
     noStroke();
-    fill(255, 100, 0); // Orange
+    fill(255, 100, 0); // Orange Cone
     triangle(-15, 20, 15, 20, 0, -20);
-    
-    // Cone stripes
-    fill(255);
-    rect(0, 5, 12, 5);
-    rect(0, -5, 8, 5);
-    
-    // Cone base
-    fill(50);
-    rect(0, 20, 35, 5);
+    fill(255); // White stripe
+    rect(0, 0, 12, 6);
+    fill(50); // Base
+    rect(0, 20, 35, 6);
     pop();
   }
 
   hits(p) {
-    // Collision box adjusted for bicycle shape
+    // Collision box for rider and bike
     return (p.x + 20 > this.x - 15 &&
             p.x - 20 < this.x + 15 &&
-            p.y + 15 > this.y - 20 &&
-            p.y - 15 < this.y + 20);
+            p.y + 25 > this.y - 20 &&
+            p.y - 25 < this.y + 20);
   }
 
   offscreen() { return this.x < -100; }
@@ -324,6 +329,7 @@ function windowResized() {
   </script>
 </body>
 </html>
+
 
 
 
