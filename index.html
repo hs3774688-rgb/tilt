@@ -7,118 +7,296 @@
 <body>
   <script>
 
+/**
+ * 1701ITC Assessment 2 - TiltLabyrinth
+ * Milestones 1 & 2 Combined
+ * * Features:
+ * - Accelerometer/Tilt control with Keyboard fallback
+ * - Game States: TITLE, INSTRUCTIONS, PLAYING, GAMEOVER
+ * - Continuous Background Music (song.mp3)
+ * - Difficulty Scaling (Speed increases over time)
+ * - High Score Persistence (Session-based)
+ */
 
-// Device Tilt Tester - Optimized with Permission Logic
-let tiltValue = 0;
-let smoothTilt = 0;
-let xPos, yPos;
+// --- Variables ---
+let gameState = 'TITLE'; // TITLE, INSTRUCTIONS, PLAYING, GAMEOVER
+let player;
+let obstacles = [];
+let score = 0;
+let highScore = 0;
+let gameSpeed = 3;
+let bgSong;
+let permissionGranted = false;
+let permissionButton;
+
+// --- Load Assets ---
+function preload() {
+  // Load the background song - ensure song.mp3 is in the same directory
+  soundFormats('mp3', 'ogg');
+  bgSong = loadSound('song.mp3');
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  xPos = width / 2;
-  yPos = height * 0.6;
-  
-  // Call the permission handler immediately
-  startDeviceRotationDetect();
-  
+  rectMode(CENTER);
   textAlign(CENTER, CENTER);
-}
 
-function startDeviceRotationDetect() {
-  // Check if we are on iOS 13+ which requires manual permission
-  if (typeof(DeviceMotionEvent) !== "undefined" && typeof(DeviceMotionEvent.requestPermission) === "function") {
-    
-    let button = createButton('Allow Tilt Sensors');
-    button.style('font-size', '24px');
-    button.position(width / 2 - 100, height / 2);
-    
-    button.mousePressed(() => {
-      DeviceMotionEvent.requestPermission()
-        .then(response => {
-          if (response == 'granted') {
-            button.hide(); // Hide button once permission is given
-          }
-        })
-        .catch(console.error);
-    });
+  // Initialize Player
+  player = new Player();
+
+  // Handle Mobile Sensor Permissions (Required for iOS)
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    permissionButton = createButton('Enable Tilt Sensors');
+    permissionButton.position(width / 2 - 75, height / 2 + 100);
+    permissionButton.mousePressed(requestSensorPermission);
+  } else {
+    // Non-iOS or Desktop
+    permissionGranted = true;
   }
 }
 
 function draw() {
-  background(135, 206, 250); 
-  
-  // 1. Update Tilt Logic
-  // We check if rotationY exists. If it's undefined or 0 (and we aren't moving), we use keys.
-  if (typeof rotationY !== 'undefined' && (rotationY !== 0 || rotationX !== 0)) {
-    tiltValue = rotationY;
-  } else {
-    // Desktop simulation (A/D or Arrows)
-    if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) tiltValue = -45;
-    else if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) tiltValue = 45;
-    else tiltValue = 0;
+  background(30, 30, 50); // Dark space theme
+
+  switch (gameState) {
+    case 'TITLE':
+      drawTitleScreen();
+      break;
+    case 'INSTRUCTIONS':
+      drawInstructionScreen();
+      break;
+    case 'PLAYING':
+      playGame();
+      break;
+    case 'GAMEOVER':
+      drawGameOverScreen();
+      break;
   }
-
-  // Smooth the movement (lerp)
-  smoothTilt = lerp(smoothTilt, tiltValue, 0.1);
-
-  // 2. Visuals
-  drawEnvironment();
-  drawLeaningBike(width / 2, yPos, smoothTilt);
-  
-  // 3. Data Overlay
-  drawUI();
 }
 
-function drawEnvironment() {
-  // Simple horizon
-  fill(34, 139, 34);
-  noStroke();
-  rect(0, height * 0.65, width, height * 0.35);
-}
+// --- Game State Functions ---
 
-function drawLeaningBike(x, y, tilt) {
-  push();
-  translate(x, y);
-  // rotationY (Gamma) controls the left/right lean
-  rotate(radians(tilt * 0.5)); 
-  
-  // Bike Body
-  stroke(0);
-  strokeWeight(2);
-  fill(0, 0, 255);
-  rect(-20, -10, 40, 15, 5);
-  
-  // Wheels
-  fill(30);
-  ellipse(-15, 10, 25);
-  ellipse(15, 10, 25);
-  
-  // Handlebars
-  line(10, -10, 15, -25);
-  line(5, -25, 25, -25);
-  pop();
-}
-
-function drawUI() {
+function drawTitleScreen() {
   fill(255);
-  textSize(40);
-  text(floor(smoothTilt) + "°", width / 2, height * 0.85);
-  
+  textSize(42);
+  text("TILT LABYRINTH", width / 2, height / 2 - 50);
+  textSize(20);
+  fill(200);
+  text("A Gravity-Defying Adventure", width / 2, height / 2);
+  fill(0, 255, 150);
+  text("Click or Tap to Start", width / 2, height / 2 + 60);
+}
+
+function drawInstructionScreen() {
+  fill(255);
+  textSize(24);
+  text("HOW TO PLAY", width / 2, height / 3);
   textSize(16);
-  fill(0, 100);
-  let mode = (typeof rotationY !== 'undefined' && rotationY !== 0) ? "SENSOR ACTIVE" : "KEYBOARD SIM";
-  text("MODE: " + mode, width / 2, 30);
+  text("Mobile: Tilt your device to move\nLaptop: Use Arrow Keys\n\nAvoid the red walls!\nSurvive as long as possible.", width / 2, height / 2);
+  fill(0, 255, 150);
+  text("Tap to Begin", width / 2, height / 2 + 120);
+}
+
+function playGame() {
+  handleInput();
   
-  if (mode === "KEYBOARD SIM") {
-    text("Use A / D keys to test", width/2, 55);
+  // Update and Display Player
+  player.update();
+  player.display();
+
+  // Manage Obstacles (Side-scroller logic)
+  if (frameCount % 60 === 0) {
+    obstacles.push(new Obstacle());
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].update();
+    obstacles[i].display();
+
+    // Collision Detection
+    if (obstacles[i].hits(player)) {
+      endGame();
+    }
+
+    // Remove off-screen obstacles and update score
+    if (obstacles[i].offscreen()) {
+      obstacles.splice(i, 1);
+      score++;
+      // Difficulty ramp: Increase speed every 5 points
+      if (score % 5 === 0) gameSpeed += 0.5;
+    }
+  }
+
+  drawHUD();
+}
+
+function drawGameOverScreen() {
+  fill(255, 50, 50);
+  textSize(48);
+  text("GAME OVER", width / 2, height / 2 - 60);
+  
+  fill(255);
+  textSize(24);
+  text("Final Score: " + score, width / 2, height / 2);
+  text("High Score: " + highScore, width / 2, height / 2 + 40);
+  
+  fill(0, 255, 150);
+  text("Tap to Try Again", width / 2, height / 2 + 100);
+}
+
+// --- Helper Functions ---
+
+function drawHUD() {
+  fill(255);
+  noStroke();
+  textSize(20);
+  textAlign(LEFT);
+  text("Score: " + score, 30, 40);
+  textAlign(RIGHT);
+  text("High Score: " + highScore, width - 30, 40);
+  textAlign(CENTER);
+}
+
+function handleInput() {
+  if (permissionGranted) {
+    // Tilt Control (Normalized for smooth movement)
+    // rotationY controls Left/Right, rotationX controls Up/Down
+    let tiltX = constrain(rotationY, -30, 30); 
+    let tiltY = constrain(rotationX, -30, 30);
+    
+    player.applyForce(tiltX * 0.1, tiltY * 0.1);
+  }
+
+  // Keyboard Fallback
+  if (keyIsDown(LEFT_ARROW)) player.applyForce(-0.5, 0);
+  if (keyIsDown(RIGHT_ARROW)) player.applyForce(0.5, 0);
+  if (keyIsDown(UP_ARROW)) player.applyForce(0, -0.5);
+  if (keyIsDown(DOWN_ARROW)) player.applyForce(0, 0.5);
+}
+
+function mousePressed() {
+  if (gameState === 'TITLE') {
+    gameState = 'INSTRUCTIONS';
+    // Start music on first interaction (Browser requirement)
+    if (!bgSong.isPlaying()) {
+      bgSong.loop();
+      bgSong.setVolume(0.5);
+    }
+  } else if (gameState === 'INSTRUCTIONS') {
+    resetGame();
+    gameState = 'PLAYING';
+  } else if (gameState === 'GAMEOVER') {
+    resetGame();
+    gameState = 'PLAYING';
   }
 }
 
+function resetGame() {
+  score = 0;
+  gameSpeed = 3;
+  obstacles = [];
+  player = new Player();
+}
+
+function endGame() {
+  gameState = 'GAMEOVER';
+  if (score > highScore) highScore = score;
+}
+
+function requestSensorPermission() {
+  DeviceOrientationEvent.requestPermission()
+    .then(response => {
+      if (response === 'granted') {
+        permissionGranted = true;
+        permissionButton.remove();
+      }
+    })
+    .catch(console.error);
+}
+
+// --- Classes ---
+
+class Player {
+  constructor() {
+    this.x = 100;
+    this.y = height / 2;
+    this.vx = 0;
+    this.vy = 0;
+    this.r = 20;
+    this.friction = 0.95;
+  }
+
+  applyForce(fx, fy) {
+    this.vx += fx;
+    this.vy += fy;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vx *= this.friction;
+    this.vy *= this.friction;
+
+    // Boundary constraints
+    this.x = constrain(this.x, this.r, width - this.r);
+    this.y = constrain(this.y, this.r, height - this.r);
+  }
+
+  display() {
+    push();
+    fill(0, 200, 255);
+    stroke(255);
+    strokeWeight(2);
+    ellipse(this.x, this.y, this.r * 2);
+    // Simple eye animation
+    fill(255);
+    ellipse(this.x + 5, this.y - 5, 5);
+    pop();
+  }
+}
+
+class Obstacle {
+  constructor() {
+    this.w = 40;
+    this.h = random(height / 4, height / 2);
+    this.x = width + this.w;
+    // Randomly place at top or bottom
+    this.y = random([this.h / 2, height - this.h / 2]);
+    this.color = color(255, 60, 100);
+  }
+
+  update() {
+    this.x -= gameSpeed;
+  }
+
+  display() {
+    fill(this.color);
+    noStroke();
+    rect(this.x, this.y, this.w, this.h, 5);
+  }
+
+  hits(p) {
+    // AABB Collision Detection
+    return (p.x + p.r > this.x - this.w / 2 &&
+            p.x - p.r < this.x + this.w / 2 &&
+            p.y + p.r > this.y - this.h / 2 &&
+            p.y - p.r < this.y + this.h / 2);
+  }
+
+  offscreen() {
+    return this.x < -this.w;
+  }
+}
+
+// Adjust canvas if window is resized
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
- </script>
+  
+  
+  </script>
 </body>
 </html>
+
 
 
